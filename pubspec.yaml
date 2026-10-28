@@ -1,0 +1,11 @@
+name: flutter_inspector_workspace
+publish_to: none
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+workspace:
+  - packages/flutter_inspector_bridge
+  - packages/flutter_inspector_dio
+  - packages/flutter_inspector_preferences
+  - packages/flutter_inspector_drift
+  - examples/flutter_fixture
+  - examples/gps_fixture

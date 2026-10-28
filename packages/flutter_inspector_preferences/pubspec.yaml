@@ -1,0 +1,15 @@
+name: flutter_inspector_preferences
+description: SharedPreferences provider for Flutter Inspector.
+version: 0.1.0
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+  flutter: '>=3.38.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_inspector_bridge: ^0.1.0
+  shared_preferences: ^2.5.5
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

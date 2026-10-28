@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Flutter Inspector
+Comment=Run Flutter projects and inspect network, databases and Android logs
+Exec=flutter-inspector
+Icon=dev.flutterinspector
+Terminal=false
+Categories=Development;Debugger;
+StartupWMClass=dev.flutterinspector

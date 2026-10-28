@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Flutter Inspector</title>
+  <desc id="desc">A mint F inside a blue inspection lens on a dark rounded square.</desc>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#203644"/>
+      <stop offset="1" stop-color="#101b28"/>
+    </linearGradient>
+    <linearGradient id="lens" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#8de5ef"/>
+      <stop offset="1" stop-color="#55a9ed"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="248" height="248" rx="56" fill="url(#tile)"/>
+  <path d="m162 162 39 39" stroke="#55a9ed" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="114" cy="114" r="66" fill="#142632" stroke="url(#lens)" stroke-width="16"/>
+  <path d="M87 80h65l-17 18h-29v16h31l-17 18h-14v22H87Z" fill="#83efce"/>
+</svg>

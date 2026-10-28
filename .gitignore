@@ -1,0 +1,17 @@
+/target/
+/.dart_tool/
+**/.dart_tool/
+**/build/
+**/coverage/
+*.log
+/dist/
+/artifacts/
+/.local/
+.DS_Store
+__pycache__/
+*.pyc
+**/.flutter-plugins-dependencies
+**/ephemeral/
+.env
+.env.*
+!.env.example

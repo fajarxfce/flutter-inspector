@@ -1,0 +1,26 @@
+[workspace]
+members = ["crates/domain", "crates/application", "crates/adapters", "crates/desktop"]
+resolver = "2"
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+[workspace.dependencies]
+inspector-domain = { path = "crates/domain" }
+inspector-application = { path = "crates/application" }
+inspector-adapters = { path = "crates/adapters" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "arbitrary_precision"] }
+thiserror = "2"
+tokio = { version = "1.53", features = ["rt-multi-thread", "sync", "time", "net", "macros", "process", "io-util"] }
+async-trait = "0.1"
+uuid = { version = "1", features = ["v4"] }
+[profile.dev]
+debug = 0
+incremental = false
+[profile.dev.build-override]
+debug = 0
+[profile.release]
+lto = "thin"
+strip = true

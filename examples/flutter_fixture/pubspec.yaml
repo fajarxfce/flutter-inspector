@@ -1,0 +1,24 @@
+name: inspector_fixture
+description: Real Flutter fixture for Flutter Inspector integrations.
+publish_to: none
+version: 0.1.0+1
+resolution: workspace
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+  flutter: ">=3.38.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  dio: ^5.11.1
+  drift: ^2.35.0
+  sqlite3: ^3.1.0
+  shared_preferences: ^2.5.5
+  flutter_inspector_bridge: ^0.1.0
+  flutter_inspector_dio: ^0.1.0
+  flutter_inspector_preferences: ^0.1.0
+  flutter_inspector_drift: ^0.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true

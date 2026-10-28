@@ -1,0 +1,30 @@
+[package]
+name = "inspector-adapters"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+inspector-domain.workspace = true
+inspector-application.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+uuid.workspace = true
+rusqlite = { version = "0.40", features = ["bundled"] }
+directories = "6"
+sha2 = "0.10"
+base64 = "0.22"
+futures-util = { version = "0.3", features = ["sink"] }
+tokio-tungstenite = { version = "0.30", features = ["rustls-tls-native-roots"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls","stream","gzip","brotli","deflate"] }
+url = "2"
+json5 = "0.4"
+libc = "0.2"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
+tempfile = "3"
+roxmltree = "0.20"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
