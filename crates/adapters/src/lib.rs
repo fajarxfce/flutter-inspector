@@ -1,4 +1,5 @@
 pub mod backend;
+pub mod device_clock;
 pub mod discovery;
 pub mod har;
 pub mod http;

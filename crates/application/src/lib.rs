@@ -1,4 +1,6 @@
+mod device_clock;
 mod gps;
+pub use device_clock::*;
 mod project;
 pub use gps::*;
 pub use project::*;
@@ -116,6 +118,15 @@ impl BodyContent {
 #[derive(Clone, Debug)]
 pub enum Command {
     Initialize,
+    ClockDevices {
+        request_id: u64,
+        uri: Option<String>,
+    },
+    DeviceClock {
+        request_id: u64,
+        serial: String,
+        action: ClockAction,
+    },
     GpsDevices {
         request_id: u64,
     },
@@ -188,6 +199,7 @@ pub enum Command {
 }
 #[derive(Clone, Debug)]
 pub enum Event {
+    DeviceClock(ClockEvent),
     Gps(GpsEvent),
     Ready {
         directory: PathBuf,

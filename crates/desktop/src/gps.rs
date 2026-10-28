@@ -6,6 +6,8 @@ use std::{path::PathBuf, sync::mpsc};
 use walkers::{HttpOptions, HttpTiles, Map, MapMemory, Tiles, lat_lon};
 
 const MINT: Color32 = Color32::from_rgb(115, 222, 193);
+const GPS_BLUE: Color32 = Color32::from_rgb(30, 115, 255);
+const MARKER_EDGE: Color32 = Color32::from_rgb(18, 32, 52);
 type FileChoice = (bool, Option<PathBuf>);
 
 pub struct GpsUi {
@@ -667,20 +669,22 @@ impl InspectorApp {
                     }
                 }
                 let selected = projector.project(position(gps.fix.point)).to_pos2();
-                painter.circle_stroke(
-                    selected,
-                    8.0,
-                    Stroke::new(2.0, Color32::from_rgb(255, 195, 100)),
-                );
-                painter.circle_filled(selected, 3.0, Color32::from_rgb(255, 195, 100));
+                painter.circle_filled(selected, 13.0, MARKER_EDGE);
+                painter.circle_filled(selected, 11.0, Color32::WHITE);
+                painter.circle_filled(selected, 8.5, GPS_BLUE);
+                painter.circle_filled(selected, 3.0, Color32::WHITE);
                 if let Some(fix) = live {
                     let center = projector.project(position(fix.point)).to_pos2();
-                    painter.circle_filled(center, 7.0, MINT);
+                    painter.circle_filled(center, 11.0, MARKER_EDGE);
+                    painter.circle_filled(center, 9.0, Color32::WHITE);
+                    painter.circle_filled(center, 7.0, GPS_BLUE);
                     let direction = Vec2::new(
                         fix.heading.to_radians().sin() as f32,
                         -fix.heading.to_radians().cos() as f32,
                     );
-                    painter.arrow(center, direction * 30.0, Stroke::new(3.0, MINT));
+                    painter.arrow(center, direction * 30.0, Stroke::new(7.0, MARKER_EDGE));
+                    painter.arrow(center, direction * 30.0, Stroke::new(5.0, Color32::WHITE));
+                    painter.arrow(center, direction * 30.0, Stroke::new(3.0, GPS_BLUE));
                 }
                 if response.clicked()
                     && let Some(at) = response.interact_pointer_pos()

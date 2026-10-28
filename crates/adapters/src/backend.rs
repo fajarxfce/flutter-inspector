@@ -102,6 +102,7 @@ pub struct Services {
     logcat: tokio::sync::Mutex<crate::logcat::Logcat>,
     runner: tokio::sync::Mutex<crate::runner::Runner>,
     gps: tokio::sync::Mutex<crate::gps::Gps>,
+    device_clock: tokio::sync::Mutex<()>,
     stopping: AtomicBool,
     stop_discovery: tokio::sync::Notify,
 }
@@ -123,6 +124,7 @@ impl Services {
             logcat: tokio::sync::Mutex::new(Default::default()),
             runner: tokio::sync::Mutex::new(Default::default()),
             gps: tokio::sync::Mutex::new(Default::default()),
+            device_clock: tokio::sync::Mutex::new(()),
             stopping: AtomicBool::new(false),
             stop_discovery: tokio::sync::Notify::new(),
         })
@@ -394,6 +396,47 @@ impl Services {
 impl Backend for Services {
     async fn handle(&self, command: Command) -> Result<(), String> {
         match command {
+            Command::ClockDevices { request_id, uri } => {
+                if let LogcatEvent::Devices {
+                    devices,
+                    suggested,
+                    error,
+                    ..
+                } = crate::logcat::devices(request_id, uri).await
+                {
+                    self.sink
+                        .send(Event::DeviceClock(ClockEvent::Devices {
+                            request_id,
+                            devices,
+                            suggested,
+                            error,
+                        }))
+                        .await;
+                }
+            }
+            Command::DeviceClock {
+                request_id,
+                serial,
+                action,
+            } => {
+                let result = match self.device_clock.try_lock() {
+                    Ok(_guard) => {
+                        crate::device_clock::execute(&crate::discovery::adb_path(), &serial, action)
+                            .await
+                    }
+                    Err(_) => Err(
+                        "Another date/time operation is still running. Try again when it finishes."
+                            .into(),
+                    ),
+                };
+                self.sink
+                    .send(Event::DeviceClock(ClockEvent::Finished {
+                        request_id,
+                        serial,
+                        result,
+                    }))
+                    .await;
+            }
             Command::Gps(command) => self.gps.lock().await.handle(command, self.sink.clone())?,
             Command::GpsDevices { request_id } => {
                 if let LogcatEvent::Devices { devices, error, .. } =

@@ -98,3 +98,12 @@ Do not add dynamic binary plugins until real third-party extension needs justify
 ## GPS simulation
 
 `domain/gps.rs` owns validated coordinates, geodesic movement and route sampling; `application/gps.rs` defines commands/status events; `adapters/gps/` owns a bounded actor, one persistent ADB helper process, route file parsing and OSRM HTTP; `desktop/gps.rs` owns controls and the native Walkers map. Map setup/downloads, ADB, dialogs and parsing run outside the window thread. The GPS actor stays independent of VM polling/discovery and uses a device-side lease for cleanup if its host disappears. See `docs/gps.md` for the protocol and recovery journal.
+
+
+## Android date and time utilities
+
+The domain layer converts local date/time through an embedded IANA timezone database and rejects invalid dates, DST gaps and ambiguous wall-clock values. The application layer defines correlated clock commands/events; the desktop discards results for previously selected devices.
+
+The ADB adapter reads clock/zone/automatic settings only on explicit refresh or action. A per-feature worker lock serializes writes without blocking the window thread. Every command names a device serial, has a four-second process deadline and bounded output, and kills timed-out subprocesses. Alarm Manager shell commands are preferred for manual time/zone; detector suggestions are a fallback only when Alarm Manager commands are absent. Automatic settings use detector controls where available, otherwise Android global settings. Values are validated before disabling automatic detection, writes are read back, and failed actions attempt to restore the changed values/settings. Neither root nor a Flutter bridge is requested.
+
+The GPS map uses blue selected/live markers with white and dark outlines; live heading arrows use the same outlines. Map position and route playback logic are unchanged.

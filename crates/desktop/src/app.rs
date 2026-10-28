@@ -20,6 +20,7 @@ pub enum Tab {
     Settings,
     Projects,
     Gps,
+    Utilities,
 }
 #[derive(Clone, Copy)]
 pub enum RequestAction {
@@ -44,6 +45,7 @@ pub struct InspectorApp {
     pub logcat: crate::logcat::LogcatUi,
     pub project: crate::project::ProjectUi,
     pub gps: crate::gps::GpsUi,
+    pub utilities: crate::utilities::UtilitiesUi,
     pub uri: String,
     pub session: Option<Session>,
     pub isolates: Vec<(String, String)>,
@@ -97,6 +99,7 @@ impl InspectorApp {
             logcat: Default::default(),
             project: Default::default(),
             gps: Default::default(),
+            utilities: Default::default(),
             uri,
             session: None,
             isolates: vec![],
@@ -230,6 +233,7 @@ impl InspectorApp {
                 Event::Runner(event) => self.runner_event(event),
                 Event::Logcat(event) => self.logcat_event(event),
                 Event::Gps(event) => self.gps_event(event),
+                Event::DeviceClock(event) => self.clock_event(event),
                 Event::Connected(session) => {
                     self.logcat_session_reset();
                     self.connection.connected(&session);
@@ -540,6 +544,7 @@ impl InspectorApp {
             (Tab::Projects, "Projects"),
             (Tab::Settings, "Settings"),
             (Tab::Gps, "GPS"),
+            (Tab::Utilities, "Utilities"),
         ] {
             let text = if tab == Tab::Intercept && !self.pending.is_empty() {
                 format!("{label}   {}", self.pending.len())
@@ -745,6 +750,7 @@ impl eframe::App for InspectorApp {
             Tab::Drift => self.drift_ui(ui),
             Tab::Settings => self.settings_ui(ui),
             Tab::Gps => self.gps_ui(ui),
+            Tab::Utilities => self.utilities_ui(ui),
         });
         self.import_window(&ctx);
         self.timings.record(frame_started.elapsed());

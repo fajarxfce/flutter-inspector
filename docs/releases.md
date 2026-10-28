@@ -1,6 +1,6 @@
 # Build and release
 
-Local source implementation does not imply verified releases on every target. The CI matrix builds natively on Linux, Windows, and macOS. No signing credentials or publication destinations are configured.
+Local source implementation does not imply verified releases on every target. The CI matrix builds natively on Linux x64, Windows x64, macOS Apple Silicon and macOS Intel. Successful builds of main publish a rolling GitHub prerelease. Signing credentials are not configured.
 
 ## Native build
 
@@ -23,7 +23,11 @@ An optional Linux AppImage can be generated with a builder-supplied appimagetool
 
 The script does not download a packaging executable. Pin and verify that tool in the release builder. AppImage includes the application, not every graphics driver/system library; test it on the oldest intended distribution. Build Linux artifacts on that baseline distribution because glibc compatibility follows the build host.
 
-The CI jobs upload build artifacts only. Publishing releases, package publication, macOS signing/notarization, and Windows Authenticode are separate release steps.
+The CI jobs retain downloadable workflow artifacts. After all four native builds and the Dart checks pass, the `preview` job publishes [Latest preview](https://github.com/fajarxfce/flutter-inspector/releases/tag/preview). It runs for pushes to `main` and manual workflow runs on `main`; pull requests cannot publish.
+
+The job requires all six archives (Linux tar.gz, Windows ZIP, and both ZIP/DMG formats for each macOS architecture), generates `SHA256SUMS`, and uploads them with the built commit in the release notes. The reserved `preview` tag advances to that commit. An older workflow skips publishing if main has advanced. Publication is serialized; the release stays draft while uploads are incomplete, and a rerun can finish interrupted uploads. Obsolete preview assets are removed when the package version changes. This process does not change stable version tags.
+
+Only the publishing job receives `contents: write` through GitHub's built-in token. No personal token or other secret is needed. Packages remain unsigned; macOS signing/notarization and Windows Authenticode are separate setup steps.
 
 ## Release checklist
 
@@ -32,6 +36,6 @@ The CI jobs upload build artifacts only. Publishing releases, package publicatio
 3. Run mobile integration on Android USB and an iOS device, preserving VM URI authentication.
 4. Exercise authenticated HTTPS with each intended device/desktop trust store. Inspector never disables certificate validation.
 5. Measure startup, memory, history search, and scrolling in release mode on representative hardware.
-6. Inspect unsigned packages and establish signing/publication separately.
+6. Inspect unsigned packages and establish signing separately when distributing signed builds.
 
 Current local results and unverified gates are recorded in validation.md.

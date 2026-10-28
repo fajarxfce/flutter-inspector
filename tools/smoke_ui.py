@@ -37,7 +37,9 @@ with tempfile.TemporaryDirectory(prefix="inspector-smoke-") as directory:
             window = None
             while time.monotonic() - started < 7:
                 if process.poll() is not None:
-                    raise RuntimeError("Inspector exited before showing a window")
+                    errors.flush()
+                    detail = (output / "stderr.log").read_text()
+                    raise RuntimeError("Inspector exited before showing a window:\n" + detail[-8000:])
                 found = subprocess.run(["xdotool", "search", "--onlyvisible", "--pid", str(process.pid)], capture_output=True, text=True)
                 if found.returncode == 0:
                     window = found.stdout.splitlines()[0]

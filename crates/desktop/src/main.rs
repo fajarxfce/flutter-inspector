@@ -11,6 +11,7 @@ mod project;
 mod providers;
 mod repeater;
 mod syntax;
+mod utilities;
 mod viewer;
 
 fn main() -> eframe::Result {

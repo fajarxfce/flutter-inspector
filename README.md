@@ -6,11 +6,13 @@ A native desktop workbench for inspecting Flutter applications: Network, Repeate
 
 The desktop targets Linux, Windows, and macOS. Built-in debug APIs inspect Flutter applications on Android, iOS, and desktop. An optional Dart bridge adds interception and replay through the app’s Dio clients. This repository is independent of the Zed extension.
 
+Download the [latest preview](https://github.com/fajarxfce/flutter-inspector/releases/tag/preview) for Windows x64, Linux x64, or macOS (Apple Silicon and Intel). Every successful build of `main` updates this prerelease with unsigned packages and SHA-256 checksums.
+
 ## Run the desktop
 
 Install Rust 1.95.0, a native C/C++ toolchain, and the platform graphics libraries. On Ubuntu:
 
-    sudo apt install build-essential pkg-config libx11-dev libxkbcommon-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev
+    sudo apt install build-essential pkg-config libx11-dev libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libegl1-mesa-dev libgl1-mesa-dev
     git clone https://github.com/fajarxfce/flutter-inspector.git
     cd flutter-inspector
     cargo run --release -p flutter-inspector
@@ -58,6 +60,17 @@ Open **GPS**, select an Android emulator or authorized USB phone (Android 8+), t
 Android reports these fixes as **mock locations** (`Position.isMocked == true` in geolocator). Mock detection is not bypassed. Don't run another mock-location tool at the same time. Device administration/OEM restrictions can reject mock providers; the UI displays the Android error. GPS control currently targets Android only; the desktop still targets Linux, Windows and macOS.
 
 See [GPS internals and tests](docs/gps.md) for the helper protocol and recovery behavior.
+
+### Android date, time and timezone
+
+Open **Utilities**, select an Android emulator or USB device, and use **Read device time**. Opening the utility only reads settings; it does not need a Flutter debug session or bridge.
+
+- Enter an IANA timezone such as `Asia/Jakarta`, or use the searchable **Browse** list, then **Apply timezone**.
+- Enter a date (`YYYY-MM-DD`) and local time (`HH:MM` or `HH:MM:SS`) in the device's current timezone, then **Apply date & time**. Apply a new timezone first if needed. Invalid dates and ambiguous/nonexistent daylight-saving times are rejected.
+- **Sync with computer** sets the device's instant from the computer's clock while retaining its timezone.
+- Manual changes disable the corresponding automatic setting. Use the automatic-setting checkboxes and **Apply automatic settings**, or **Enable both**, to return control to Android.
+
+Changes affect all apps on the selected device and remain after Inspector closes. Each Apply reads the device again to verify the result. Android policies and permissions can reject changes; errors remain visible, and **Open Android settings** provides a manual alternative. Failed writes attempt to restore the settings they changed. There is no periodic ADB clock polling.
 
 ### Finding a manual URL
 

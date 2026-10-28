@@ -1,26 +1,36 @@
 name: Verify and build
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   native:
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022, macos-15]
+        os: [ubuntu-24.04, windows-2022, macos-15, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: dtolnay/rust-toolchain@1.95.0
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      - name: Verify release package checks
+        run: python -m unittest discover -s tools -p test_publish_preview.py
       - name: Linux native libraries
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y pkg-config libx11-dev libxkbcommon-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev xvfb xdotool xclip imagemagick tesseract-ocr
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libx11-dev libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri xvfb xdotool xclip imagemagick tesseract-ocr
+      - name: Software OpenGL for headless Linux UI checks
+        if: runner.os == 'Linux'
+        run: echo 'LIBGL_ALWAYS_SOFTWARE=1' >> "$GITHUB_ENV"
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
@@ -34,17 +44,26 @@ jobs:
       - name: Network and multi-tab Repeater UI
         if: runner.os == 'Linux'
         run: xvfb-run -a -s '-screen 0 1600x1000x24' python3 tools/repeater_ui.py target/release/flutter-inspector
+      - name: Android date and time utility UI
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s '-screen 0 1600x1000x24' python3 tools/device_clock_ui.py target/release/flutter-inspector
       - run: python tools/package.py
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ runner.os }}-${{ runner.arch }}
           path: dist/
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
-        if: runner.os == 'Linux'
+        if: always() && runner.os == 'Linux'
         with:
           name: linux-smoke
-          path: artifacts/smoke/
+          path: |
+            artifacts/smoke/
+            artifacts/repeater-ui/
+            artifacts/gps-ui/
+            artifacts/device-clock-ui/
   dart:
+    timeout-minutes: 45
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -77,3 +96,28 @@ jobs:
         working-directory: examples/flutter_fixture
       - name: Built-in inspectors without bridge
         run: xvfb-run -a cargo test -p inspector-adapters --test native_vm -- --ignored
+  preview:
+    name: Publish latest preview
+    needs: [native, dart]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: latest-preview-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify packages and publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/publish_preview.py --assets release-assets

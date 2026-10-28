@@ -31,7 +31,7 @@ def key(win, keys):
 
 def navigate(win, tab):
     """Default-scale sidebar coordinates shared by the non-OCR smoke drivers."""
-    tabs = ("Network", "Repeater", "Intercept", "Preferences", "Drift", "Projects", "Settings", "GPS")
+    tabs = ("Network", "Repeater", "Intercept", "Preferences", "Drift", "Projects", "Settings", "GPS", "Utilities")
     click(win, 80, 154 + 42 * tabs.index(tab))
 
 

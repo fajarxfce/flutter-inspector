@@ -5,6 +5,7 @@
 **/coverage/
 *.log
 /dist/
+/release-assets/
 /artifacts/
 /.local/
 .DS_Store
