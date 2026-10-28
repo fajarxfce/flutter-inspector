@@ -223,7 +223,9 @@ with tempfile.TemporaryDirectory(prefix="inspector-repeater-") as temporary:
         # Clear all original history. Both saved Repeater responses still work.
         navigate(win, "Network")
         click_text(win, probe, "Clear all")
-        click_text(win, probe, "Clear history")
+        # OCR can miss the red confirmation label on the darker CI framebuffer.
+        cancel = wait_for(lambda: locate(win, probe, "Cancel", minimum_y=350))
+        click(win, cancel[0]+85, cancel[1])
         wait_for(lambda: not query("SELECT id FROM exchanges"))
         navigate(win, "Repeater")
         assert locate(win, probe, "Status 202")

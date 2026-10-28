@@ -66,7 +66,7 @@ See [GPS internals and tests](docs/gps.md) for the helper protocol and recovery 
 Open **Utilities**, select an Android emulator or USB device, and use **Read device time**. Opening the utility only reads settings; it does not need a Flutter debug session or bridge.
 
 - Enter an IANA timezone such as `Asia/Jakarta`, or use the searchable **Browse** list, then **Apply timezone**.
-- Enter a date (`YYYY-MM-DD`) and local time (`HH:MM` or `HH:MM:SS`) in the device's current timezone, then **Apply date & time**. Apply a new timezone first if needed. Invalid dates and ambiguous/nonexistent daylight-saving times are rejected.
+- Click the date to open a calendar and **Save** your selection. Use the 24-hour time picker to choose hour, minute and second, then press **Done**. **Apply date & time** sends the selection to the device. These values use the device's current timezone; apply a new timezone first if needed. Ambiguous/nonexistent daylight-saving times are rejected.
 - **Sync with computer** sets the device's instant from the computer's clock while retaining its timezone.
 - Manual changes disable the corresponding automatic setting. Use the automatic-setting checkboxes and **Apply automatic settings**, or **Enable both**, to return control to Android.
 

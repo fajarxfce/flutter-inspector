@@ -54,7 +54,9 @@ def screenshot(win, path):
 def words(win, path):
     screenshot(win, path)
     result = subprocess.run(["tesseract", str(path), "stdout", "--psm", "11", "-c", "tessedit_create_tsv=1"], capture_output=True, text=True, check=True)
-    return [w for w in csv.DictReader(io.StringIO(result.stdout), delimiter="\t") if w["text"].strip()]
+    # Tesseract TSV contains literal quote characters, not CSV-escaped fields.
+    # A recognized `"` must not swallow the following rows and their coordinates.
+    return [w for w in csv.DictReader(io.StringIO(result.stdout), delimiter="\t", quoting=csv.QUOTE_NONE) if w["text"].strip()]
 
 
 def locate(win, path, phrase, minimum_y=0):

@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from ui_driver import click, click_text, enter, key, locate, navigate, screenshot, wait_for, window
+from ui_driver import click, click_text, enter, key, locate, navigate, screenshot, wait_for, window, words
 
 root = Path(__file__).resolve().parents[1]
 binary = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else root / "target/debug/flutter-inspector"
@@ -26,7 +26,8 @@ with tempfile.TemporaryDirectory(prefix="inspector-clock-ui-") as temporary:
     adb = data / "adb"
     shutil.copyfile(root / "tools/fixtures/clock_adb.py", adb)
     adb.chmod(0o755)
-    initial = dict(epoch_millis=1793150000000, timezone="Asia/Jakarta", auto_time=True, auto_time_zone=True)
+    initial_epoch = int(datetime(2026,10,28,10,0,0,tzinfo=ZoneInfo("Asia/Kathmandu")).timestamp()*1000)
+    initial = dict(epoch_millis=initial_epoch, timezone="Asia/Jakarta", auto_time=True, auto_time_zone=True)
     (data / "state.json").write_text(json.dumps(initial))
     (data / "other.json").write_text(json.dumps(dict(initial, timezone="Pacific/Auckland")))
     with sqlite3.connect(data / "inspector.sqlite") as db:
@@ -64,14 +65,38 @@ with tempfile.TemporaryDirectory(prefix="inspector-clock-ui-") as temporary:
             assert state()["auto_time"]
             section = locate(win, probe, "Date & time", minimum_y=300)
             date = locate(win, probe, "Date", minimum_y=section[1]+35)
-            enter(win, date[0]+95, date[1], "2027-02-30")
             count = len(mutations())
+            click(win, date[0]+80, date[1])
+            wait_for(lambda: locate(win, probe, "October"))
+            screenshot(win, out / "calendar-picker.png")
+            # October 14 is Wednesday in the third displayed calendar row.
+            # OCR merges the tiny adjacent day labels, so target its cell.
+            click(win, date[0]+148, date[1]+145)
+            screenshot(win, out / "calendar-selected.png")
+            save = wait_for(lambda: locate(win, probe, "Save", minimum_y=600))
+            click(win, *save)
+            wait_for(lambda: locate(win, probe, "2026-10-14", minimum_y=350))
+            click(win, date[0]+220, date[1])
+
+            def pick_time_part(label, value):
+                def point():
+                    items = words(win, probe)
+                    heading = next((w for w in items if w["text"] == label), None)
+                    if not heading:
+                        return None
+                    item = next((w for w in items if w["text"].lower().replace("o", "0").zfill(2) == f"{value:02}" and
+                        -5 < int(w["left"])-int(heading["left"]) < 60 and int(w["top"]) > int(heading["top"])), None)
+                    return (int(item["left"])+10, int(item["top"])+8) if item else None
+                click(win, *wait_for(point))
+
+            pick_time_part("Hour", 12)
+            pick_time_part("Minute", 2)
+            pick_time_part("Second", 3)
+            screenshot(win, out / "time-picker.png")
+            click_text(win, probe, "Done")
+            assert len(mutations()) == count, "Picking a date or time must not apply it automatically"
             click_text(win, probe, "Apply date & time")
-            assert len(mutations()) == count, "Invalid date must not mutate the device"
-            enter(win, date[0]+95, date[1], "2027-01-02")
-            enter(win, date[0]+265, date[1], "15:04:05")
-            click_text(win, probe, "Apply date & time")
-            expected = int(datetime(2027,1,2,15,4,5,tzinfo=ZoneInfo("Asia/Kathmandu")).timestamp()*1000)
+            expected = int(datetime(2026,10,14,12,2,3,tzinfo=ZoneInfo("Asia/Kathmandu")).timestamp()*1000)
             wait_for(lambda: state()["epoch_millis"] == expected)
             wait_for(lambda: locate(win, probe, "Date & time applied"))
             assert not state()["auto_time"]
@@ -106,7 +131,7 @@ with tempfile.TemporaryDirectory(prefix="inspector-clock-ui-") as temporary:
             assert sum(pixels[i:i+3] == bytes((30,115,255)) for i in range(0,len(pixels),3)) > 40
             key(win, "ctrl+q")
             app.wait(timeout=8)
-            (out / "result.json").write_text(json.dumps(dict(checks=["passive_open", "timezone", "invalid_date", "manual_datetime", "computer_sync", "automatic_settings", "adb_timeout_navigation_recovery", "switch_device", "blue_gps_marker"]), indent=2))
+            (out / "result.json").write_text(json.dumps(dict(checks=["passive_open", "timezone", "calendar_picker", "time_picker", "manual_datetime", "computer_sync", "automatic_settings", "adb_timeout_navigation_recovery", "switch_device", "blue_gps_marker"]), indent=2))
             print("Date/time utility and GPS marker UI passed")
         finally:
             if app.poll() is None:

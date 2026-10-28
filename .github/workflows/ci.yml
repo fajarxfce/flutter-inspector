@@ -23,8 +23,10 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Verify release package checks
-        run: python -m unittest discover -s tools -p test_publish_preview.py
+        with:
+          cache-on-failure: true
+      - name: Verify build tooling
+        run: python -m unittest discover -s tools -p 'test_*.py'
       - name: Linux native libraries
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y pkg-config libx11-dev libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri xvfb xdotool xclip imagemagick tesseract-ocr

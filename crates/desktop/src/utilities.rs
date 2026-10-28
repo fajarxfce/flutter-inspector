@@ -16,8 +16,9 @@ pub struct UtilitiesUi {
     timezone: String,
     zone_search: String,
     zones: Vec<&'static str>,
-    date: String,
+    date: Option<jiff::civil::Date>,
     time: String,
+    time_picker_open: bool,
     automatic_time: bool,
     automatic_timezone: bool,
     message: String,
@@ -40,8 +41,9 @@ impl Default for UtilitiesUi {
             timezone: "Asia/Jakarta".into(),
             zone_search: String::new(),
             zones,
-            date: String::new(),
+            date: None,
             time: String::new(),
+            time_picker_open: false,
             automatic_time: true,
             automatic_timezone: true,
             message: "Select an Android device to read its date, time and timezone.".into(),
@@ -57,8 +59,9 @@ impl UtilitiesUi {
         self.busy = false;
         self.clock = None;
         self.read_at = None;
-        self.date.clear();
+        self.date = None;
         self.time.clear();
+        self.time_picker_open = false;
         self.error = false;
         self.message = if self.serial.is_empty() {
             "No Android device connected. Connect a device and Refresh devices."
@@ -85,7 +88,7 @@ impl UtilitiesUi {
                 self.automatic_timezone = result.clock.automatic_timezone;
                 if let Ok(local) = epoch_to_local(result.clock.epoch_millis, &result.clock.timezone)
                 {
-                    self.date = local.date;
+                    self.date = local.date.parse().ok();
                     self.time = local.time;
                 }
                 self.clock = Some(result.clock);
@@ -291,15 +294,16 @@ impl InspectorApp {
                 ui.add_space(14.0);
                 ui.heading("Date & time");
                 let zone = self.utilities.clock.as_ref().map(|c| c.timezone.as_str()).unwrap_or("UTC");
-                ui.weak(format!("Enter local time in {zone}. Apply timezone first to use a different zone."));
-                let valid = local_to_epoch(&self.utilities.date, &self.utilities.time, zone);
+                ui.weak(format!("Pick local date and time in {zone}. Apply timezone first to use a different zone."));
+                let date = self.utilities.date.map(|date| date.to_string()).unwrap_or_default();
+                let valid = local_to_epoch(&date, &self.utilities.time, zone);
                 ui.horizontal_wrapped(|ui| {
                     ui.label("Date");
-                    ui.add(egui::TextEdit::singleline(&mut self.utilities.date).desired_width(130.0).hint_text("YYYY-MM-DD"));
+                    date_picker(ui, &mut self.utilities.date, self.utilities.request_id);
                     ui.label("Time");
-                    ui.add(egui::TextEdit::singleline(&mut self.utilities.time).desired_width(100.0).hint_text("HH:MM:SS"));
+                    time_picker(ui, &mut self.utilities.time, &mut self.utilities.time_picker_open);
                     if ui.add_enabled(valid.is_ok(), egui::Button::new("Apply date & time")).clicked() {
-                        action = Some(ClockAction::SetDateTime { date: self.utilities.date.clone(), time: self.utilities.time.clone(), timezone: zone.into() });
+                        action = Some(ClockAction::SetDateTime { date: self.utilities.date.map(|date| date.to_string()).unwrap_or_default(), time: self.utilities.time.clone(), timezone: zone.into() });
                     }
                     if ui.button("Sync with computer").clicked() { action = Some(ClockAction::SyncComputer); }
                 });
@@ -326,6 +330,88 @@ impl InspectorApp {
         if let Some(action) = action {
             self.clock_command(action);
         }
+    }
+}
+
+fn date_picker(ui: &mut egui::Ui, date: &mut Option<jiff::civil::Date>, request_id: u64) {
+    let Some(date) = date else {
+        ui.add_enabled(false, egui::Button::new("Choose date"));
+        return;
+    };
+    ui.push_id(request_id, |ui| {
+        ui.add(
+            egui_extras::DatePickerButton::new(date)
+                .id_salt("device-clock-date")
+                .calendar_week(false)
+                .highlight_weekends(false)
+                .arrows(false)
+                .start_end_years(1970..=2099),
+        );
+    });
+}
+
+fn time_picker(ui: &mut egui::Ui, text: &mut String, open: &mut bool) {
+    let mut parts = [0u8; 3];
+    for (part, value) in parts.iter_mut().zip(text.split(':')) {
+        *part = value.parse().unwrap_or(0);
+    }
+    let button = ui.button(
+        RichText::new(format!(
+            "{}  ▾",
+            if text.is_empty() {
+                "Choose time"
+            } else {
+                text.as_str()
+            }
+        ))
+        .monospace(),
+    );
+    let response = egui::Popup::menu(&button)
+        .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+        .show(|ui| {
+            let opening = !*open;
+            *open = true;
+            ui.set_width(250.0);
+            ui.strong("Choose time · 24 hours");
+            ui.separator();
+            ui.columns(3, |columns| {
+                for (index, (label, maximum)) in [("Hour", 24u8), ("Minute", 60), ("Second", 60)]
+                    .into_iter()
+                    .enumerate()
+                {
+                    columns[index].strong(label);
+                    egui::ScrollArea::vertical()
+                        .id_salt(("clock-time-column", index))
+                        .max_height(170.0)
+                        .auto_shrink([false, false])
+                        .show(&mut columns[index], |ui| {
+                            for value in 0..maximum {
+                                let selected = parts[index] == value;
+                                let response = ui.selectable_label(
+                                    selected,
+                                    RichText::new(format!("{value:02}")).monospace(),
+                                );
+                                if opening && selected {
+                                    response.scroll_to_me(Some(egui::Align::Center));
+                                }
+                                if response.clicked() {
+                                    parts[index] = value;
+                                }
+                            }
+                        });
+                }
+            });
+            *text = format!("{:02}:{:02}:{:02}", parts[0], parts[1], parts[2]);
+            ui.separator();
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(text.as_str()).monospace());
+                if ui.button("Done").clicked() {
+                    ui.close();
+                }
+            });
+        });
+    if response.is_none() {
+        *open = false;
     }
 }
 
