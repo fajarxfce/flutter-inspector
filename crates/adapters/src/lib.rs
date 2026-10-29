@@ -7,6 +7,8 @@ pub mod native;
 pub mod store;
 pub mod vm;
 
+pub mod android_apps;
+mod android_shell;
 pub mod gps;
 pub mod logcat;
 mod process_io;

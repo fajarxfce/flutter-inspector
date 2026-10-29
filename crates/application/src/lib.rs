@@ -117,6 +117,19 @@ impl BodyContent {
 }
 #[derive(Clone, Debug)]
 pub enum Command {
+    AndroidAppDevices {
+        request_id: u64,
+        uri: Option<String>,
+    },
+    ListAndroidApps {
+        request_id: u64,
+        serial: String,
+    },
+    AndroidApp {
+        request_id: u64,
+        target: AppTarget,
+        action: AppAction,
+    },
     Initialize,
     ClockDevices {
         request_id: u64,
@@ -199,6 +212,7 @@ pub enum Command {
 }
 #[derive(Clone, Debug)]
 pub enum Event {
+    AndroidApps(AndroidAppsEvent),
     DeviceClock(ClockEvent),
     Gps(GpsEvent),
     Ready {
@@ -431,3 +445,5 @@ mod tests {
         assert_eq!(saved, (0..32).map(|n| n.to_string()).collect::<Vec<_>>());
     }
 }
+mod android_apps;
+pub use android_apps::*;

@@ -43,7 +43,7 @@ The Inspector reads VM startup markers from Android's main log buffer, verifies 
 
 Running apps without the SDK connect through their built-in debug APIs. Connection failures display their reason. Discovery never claims a controller lease. It removes only forwards it created, on normal shutdown or when obsolete. If neither a live DDS session nor a startup marker is available, restart the debug app; endpoints found during a session remain cached while the process is alive.
 
-**Auto observe** scans about every five seconds while disconnected. Full process/ADB scans stop while connecting or connected; the existing VM connection checks liveness with a lightweight heartbeat. A lost connection or hot restart triggers a fresh scan for the selected app. Use **Refresh** to discover other apps while connected. An explicit **Disconnect** turns auto-observe off. Multiple apps or a bridge owned by another Inspector require selection/availability; discovery never steals the lease.
+**Auto observe** checks in the background while disconnected, starting at five seconds and backing off to thirty seconds when nothing changes. Automatic scans keep the toolbar stable, without a spinner replacing the Refresh button. Full process/ADB scans and the discovery repaint timer stop while connecting or connected; the existing VM connection checks liveness with a lightweight heartbeat. A lost connection or hot restart triggers a fresh scan for the selected app. Use **Refresh** to discover apps immediately, including while connected. An explicit **Disconnect** turns auto-observe off. Multiple apps or a bridge owned by another Inspector require selection/availability; discovery never steals the lease.
 
 Local Linux/Windows/macOS IDE sessions are discovered through DDS. Apps with the optional bridge also advertise a short-lived descriptor from its temporary directory. The app and Inspector must share the same user temporary directory; sandboxed desktop apps with separate containers use Manual URI. iOS and remote/network targets currently use **Manual URI**; iOS mDNS discovery is not implemented.
 
@@ -60,6 +60,16 @@ Open **GPS**, select an Android emulator or authorized USB phone (Android 8+), t
 Android reports these fixes as **mock locations** (`Position.isMocked == true` in geolocator). Mock detection is not bypassed. Don't run another mock-location tool at the same time. Device administration/OEM restrictions can reject mock providers; the UI displays the Android error. GPS control currently targets Android only; the desktop still targets Linux, Windows and macOS.
 
 See [GPS internals and tests](docs/gps.md) for the helper protocol and recovery behavior.
+
+### Android app manager
+
+Open **Apps**, select an Android emulator or USB device, and choose **Installed**, **System**, or **All**. Installed means user-installed apps. Search by package name; selecting a package loads its details on the right. The list is scoped to the current Android user and refreshes only when requested.
+
+- **Permissions:** toggle editable runtime permissions, grouped by purpose. Each change is read back from Android. System/policy-fixed, install-time and unknown permission states stay read-only. Separate buttons open Android's special-access settings for notifications, overlays, all-files access and exact alarms.
+- **Storage:** clear only the selected app's cache, or clear its storage including local databases, preferences, files and login state. Both show the exact package, device and Android user before confirmation. Cache-only clearing requires Android's `pm clear --cache-only`; older devices offer App info → Storage instead, without falling back to clearing data.
+- **App actions:** launch the app, force stop it, or open App info on the device. Storage usage is shown by Android in App info → Storage.
+
+This works independently of a Flutter debug connection and needs no bridge. Android can stop an app when its permission is revoked, and may reject changes based on policy, target SDK or permission dependencies. After changing settings on the phone, use **Refresh details**.
 
 ### Android date, time and timezone
 

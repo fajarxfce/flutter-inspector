@@ -23,6 +23,7 @@ struct Connection {
     isolate: String,
     controller: String,
     cursor: AtomicU64,
+    pending_empty: AtomicBool,
     alive: Arc<AtomicBool>,
     heartbeat: tokio::task::AbortHandle,
     registry_watcher: tokio::task::AbortHandle,
@@ -103,6 +104,7 @@ pub struct Services {
     runner: tokio::sync::Mutex<crate::runner::Runner>,
     gps: tokio::sync::Mutex<crate::gps::Gps>,
     device_clock: tokio::sync::Mutex<()>,
+    app_mutation: tokio::sync::Mutex<()>,
     stopping: AtomicBool,
     stop_discovery: tokio::sync::Notify,
 }
@@ -125,6 +127,7 @@ impl Services {
             runner: tokio::sync::Mutex::new(Default::default()),
             gps: tokio::sync::Mutex::new(Default::default()),
             device_clock: tokio::sync::Mutex::new(()),
+            app_mutation: tokio::sync::Mutex::new(()),
             stopping: AtomicBool::new(false),
             stop_discovery: tokio::sync::Notify::new(),
         })
@@ -294,6 +297,7 @@ impl Services {
             isolate: isolate.clone(),
             controller,
             cursor: AtomicU64::new(0),
+            pending_empty: AtomicBool::new(true),
             alive,
             heartbeat,
             registry_watcher,
@@ -396,6 +400,66 @@ impl Services {
 impl Backend for Services {
     async fn handle(&self, command: Command) -> Result<(), String> {
         match command {
+            Command::AndroidAppDevices { request_id, uri } => {
+                if let LogcatEvent::Devices {
+                    devices,
+                    suggested,
+                    error,
+                    ..
+                } = crate::logcat::devices(request_id, uri).await
+                {
+                    self.sink
+                        .send(Event::AndroidApps(AndroidAppsEvent::Devices {
+                            request_id,
+                            devices,
+                            suggested,
+                            error,
+                        }))
+                        .await;
+                }
+            }
+            Command::ListAndroidApps { request_id, serial } => {
+                let result =
+                    crate::android_apps::list(&crate::discovery::adb_path(), &serial).await;
+                self.sink
+                    .send(Event::AndroidApps(AndroidAppsEvent::Listed {
+                        request_id,
+                        serial,
+                        result,
+                    }))
+                    .await;
+            }
+            Command::AndroidApp {
+                request_id,
+                target,
+                action,
+            } => {
+                let result = if matches!(action, AppAction::Inspect) {
+                    crate::android_apps::execute(&crate::discovery::adb_path(), &target, action)
+                        .await
+                } else {
+                    match self.app_mutation.try_lock() {
+                        Ok(_guard) => {
+                            crate::android_apps::execute(
+                                &crate::discovery::adb_path(),
+                                &target,
+                                action,
+                            )
+                            .await
+                        }
+                        Err(_) => Err(
+                            "Another app operation is still running. Wait for it to finish.".into(),
+                        ),
+                    }
+                };
+                self.sink
+                    .send(Event::AndroidApps(AndroidAppsEvent::Finished {
+                        request_id,
+                        target,
+                        result,
+                    }))
+                    .await;
+            }
             Command::ClockDevices { request_id, uri } => {
                 if let LogcatEvent::Devices {
                     devices,
@@ -1006,7 +1070,11 @@ impl Backend for Services {
                     }
                 }
             }
-            self.sink.send(Event::Pending(page.pending)).await;
+            let empty = page.pending.is_empty();
+            let was_empty = connection.pending_empty.swap(empty, Ordering::Relaxed);
+            if !empty || !was_empty {
+                self.sink.send(Event::Pending(page.pending)).await;
+            }
             if page.dropped > 0 {
                 self.sink
                     .send(Event::Notice(format!(

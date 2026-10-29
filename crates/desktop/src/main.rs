@@ -47,3 +47,4 @@ fn running_on_wayland() -> bool {
             .iter()
             .any(|key| std::env::var_os(key).is_some_and(|value| !value.is_empty()))
 }
+mod android_apps;

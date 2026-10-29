@@ -14,6 +14,8 @@ pub struct ConnectionUi {
     manual: bool,
     attention_uri: Option<String>,
     setup_open: bool,
+    manual_scan: bool,
+    unchanged_scans: u32,
 }
 impl Default for ConnectionUi {
     fn default() -> Self {
@@ -28,10 +30,29 @@ impl Default for ConnectionUi {
             manual: false,
             attention_uri: None,
             setup_open: false,
+            manual_scan: false,
+            unchanged_scans: 0,
         }
     }
 }
 impl ConnectionUi {
+    pub fn discovered(&mut self, mut report: DiscoveryReport) {
+        report.apps.sort_by(|a, b| {
+            (&a.name, &a.device, &a.uri, &a.isolate).cmp(&(&b.name, &b.device, &b.uri, &b.isolate))
+        });
+        report.notes.sort();
+        let changed = self.report.apps != report.apps || self.report.notes != report.notes;
+        if changed {
+            self.report = report;
+            self.unchanged_scans = 0;
+        } else {
+            self.unchanged_scans = self.unchanged_scans.saturating_add(1);
+        }
+        self.scanning = false;
+        self.manual_scan = false;
+        self.next_scan = Instant::now()
+            + Duration::from_secs((5 * (u64::from(self.unchanged_scans) + 1)).min(30));
+    }
     fn should_scan(&self, auto_observe: bool, connected: bool, now: Instant) -> bool {
         auto_observe
             && self.ready
@@ -102,12 +123,14 @@ impl InspectorApp {
             Err(error) => self.notice(true, format!("Worker busy: {error}. Try again.")),
         }
     }
-    fn discover(&mut self) {
+    fn discover(&mut self, manual: bool) {
         if self.connection.scanning {
+            self.connection.manual_scan |= manual;
             return;
         }
         if self.worker.commands.try_send(Command::Discover).is_ok() {
             self.connection.scanning = true;
+            self.connection.manual_scan = manual;
         }
     }
     pub fn connection_tick(&mut self, ctx: &egui::Context) {
@@ -120,13 +143,17 @@ impl InspectorApp {
             self.project.retry_at = Instant::now() + Duration::from_secs(3);
             self.connect_to(uri, None);
         }
-        if self.connection.ready && self.settings.auto_observe && !self.project.active {
+        if self.connection.ready
+            && self.settings.auto_observe
+            && !self.project.active
+            && self.session.is_none()
+        {
             if self.connection.should_scan(
                 self.settings.auto_observe,
                 self.session.is_some(),
                 Instant::now(),
             ) {
-                self.discover();
+                self.discover(false);
             }
             if self.session.is_none()
                 && !self.connection.connecting
@@ -136,7 +163,17 @@ impl InspectorApp {
                 self.connection.preferred = Some((app.name, app.device));
                 self.connect_to(app.uri, Some(app.isolate));
             }
-            ctx.request_repaint_after(Duration::from_millis(500));
+            if !self.connection.scanning && !self.connection.connecting {
+                let mut wake_at = self.connection.next_scan;
+                if self.connection.candidate().is_some() {
+                    wake_at = wake_at.min(self.connection.retry_after);
+                }
+                ctx.request_repaint_after(
+                    wake_at
+                        .saturating_duration_since(Instant::now())
+                        .max(Duration::from_millis(100)),
+                );
+            }
         }
     }
     pub fn connection_bar(&mut self, ui: &mut egui::Ui) {
@@ -148,9 +185,7 @@ impl InspectorApp {
                     .color(Color32::from_rgb(102, 204, 180)),
             );
             ui.separator();
-            let title = if self.connection.connecting {
-                "Connecting…".to_owned()
-            } else if let Some(session) = &self.session {
+            let title = if let Some(session) = &self.session {
                 session.hello.name.clone()
             } else if self.connection.report.apps.is_empty() {
                 "Waiting for a debug app".into()
@@ -191,7 +226,7 @@ impl InspectorApp {
                         }
                     }
                     if self.connection.report.apps.is_empty() {
-                        ui.label("Run a debug app with InspectorBridge initialized.");
+                        ui.label("Run a Flutter app in debug mode. Auto observe checks in the background.");
                     }
                     for note in &self.connection.report.notes {
                         ui.weak(note);
@@ -208,10 +243,12 @@ impl InspectorApp {
                 self.connection.next_scan = Instant::now();
                 self.send(Command::SaveSettings(self.settings.clone()));
             }
-            if self.connection.scanning {
-                ui.spinner();
-            } else if ui.button("Refresh").clicked() {
-                self.discover();
+            // Background scans must not replace this button with a spinner,
+            // shift controls, or repaint the entire window continuously.
+            if ui.add_sized([82.0, 28.0], egui::Button::new(if self.connection.manual_scan { "Scanning…" } else { "Refresh" }))
+                .on_hover_text("Find debug apps now; automatic scans keep this toolbar stable.")
+                .clicked() {
+                self.discover(true);
             }
             if self.session.is_some()
                 && !self.connection.connecting
@@ -306,6 +343,33 @@ impl InspectorApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn unchanged_scan_keeps_order_and_backs_off_without_disabling_manual_refresh() {
+        let mut state = ConnectionUi::default();
+        state.discovered(DiscoveryReport {
+            apps: vec![app("B", false), app("A", false)],
+            notes: vec![],
+        });
+        assert_eq!(state.report.apps[0].name, "A");
+        for _ in 0..8 {
+            state.discovered(DiscoveryReport {
+                apps: vec![app("A", false), app("B", false)],
+                notes: vec![],
+            });
+        }
+        assert_eq!(state.report.apps[0].name, "A");
+        assert!(
+            state.next_scan.saturating_duration_since(Instant::now()) > Duration::from_secs(29)
+        );
+        assert!(!state.scanning);
+        state.discovered(DiscoveryReport {
+            apps: vec![app("C", false)],
+            notes: vec![],
+        });
+        assert!(
+            state.next_scan.saturating_duration_since(Instant::now()) <= Duration::from_secs(5)
+        );
+    }
     fn app(name: &str, busy: bool) -> DiscoveredApp {
         DiscoveredApp {
             uri: "http://127.0.0.1:123/token=/".into(),

@@ -49,6 +49,9 @@ jobs:
       - name: Android date and time utility UI
         if: runner.os == 'Linux'
         run: xvfb-run -a -s '-screen 0 1600x1000x24' python3 tools/device_clock_ui.py target/release/flutter-inspector
+      - name: Android app manager UI
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s '-screen 0 1600x1100x24' python3 tools/android_apps_ui.py target/release/flutter-inspector
       - run: python tools/package.py
       - uses: actions/upload-artifact@v4
         with:
@@ -64,6 +67,7 @@ jobs:
             artifacts/repeater-ui/
             artifacts/gps-ui/
             artifacts/device-clock-ui/
+            artifacts/android-apps-ui/
   dart:
     timeout-minutes: 45
     runs-on: ubuntu-24.04

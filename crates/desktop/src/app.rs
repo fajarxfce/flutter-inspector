@@ -21,6 +21,7 @@ pub enum Tab {
     Projects,
     Gps,
     Utilities,
+    AndroidApps,
 }
 #[derive(Clone, Copy)]
 pub enum RequestAction {
@@ -46,6 +47,7 @@ pub struct InspectorApp {
     pub project: crate::project::ProjectUi,
     pub gps: crate::gps::GpsUi,
     pub utilities: crate::utilities::UtilitiesUi,
+    pub android_apps: crate::android_apps::AndroidAppsUi,
     pub uri: String,
     pub session: Option<Session>,
     pub isolates: Vec<(String, String)>,
@@ -100,6 +102,7 @@ impl InspectorApp {
             project: Default::default(),
             gps: Default::default(),
             utilities: Default::default(),
+            android_apps: Default::default(),
             uri,
             session: None,
             isolates: vec![],
@@ -234,6 +237,7 @@ impl InspectorApp {
                 Event::Logcat(event) => self.logcat_event(event),
                 Event::Gps(event) => self.gps_event(event),
                 Event::DeviceClock(event) => self.clock_event(event),
+                Event::AndroidApps(event) => self.android_apps_event(event),
                 Event::Connected(session) => {
                     self.logcat_session_reset();
                     self.connection.connected(&session);
@@ -278,9 +282,7 @@ impl InspectorApp {
                     self.notice(true, error);
                 }
                 Event::Discovered(report) => {
-                    self.connection.scanning = false;
-                    self.connection.report = report;
-                    self.connection.next_scan = Instant::now() + Duration::from_secs(5);
+                    self.connection.discovered(report);
                 }
                 Event::Isolates(isolates) => self.isolates = isolates,
                 Event::History {
@@ -545,6 +547,7 @@ impl InspectorApp {
             (Tab::Settings, "Settings"),
             (Tab::Gps, "GPS"),
             (Tab::Utilities, "Utilities"),
+            (Tab::AndroidApps, "Apps"),
         ] {
             let text = if tab == Tab::Intercept && !self.pending.is_empty() {
                 format!("{label}   {}", self.pending.len())
@@ -751,6 +754,7 @@ impl eframe::App for InspectorApp {
             Tab::Settings => self.settings_ui(ui),
             Tab::Gps => self.gps_ui(ui),
             Tab::Utilities => self.utilities_ui(ui),
+            Tab::AndroidApps => self.android_apps_ui(ui),
         });
         self.import_window(&ctx);
         self.timings.record(frame_started.elapsed());

@@ -6,6 +6,7 @@ import json
 import os
 import re
 import signal
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -54,7 +55,7 @@ def select_fixture(window):
     screenshot(window,"app-selection.png")
     result=subprocess.run(["tesseract",str(output/"app-selection.png"),"stdout",
         "--psm","11","-c","tessedit_create_tsv=1"],capture_output=True,text=True,check=True)
-    for word in csv.DictReader(io.StringIO(result.stdout),delimiter="\t"):
+    for word in csv.DictReader(io.StringIO(result.stdout),delimiter="\t",quoting=csv.QUOTE_NONE):
         if "inspector_fixture" in word["text"].lower():
             click(window,int(word["left"])+int(word["width"])//2,
                 int(word["top"])+int(word["height"])//2)
@@ -102,7 +103,15 @@ if sys.argv[1:2] == ['devices']:
         desktop_binary=Path(sys.argv[1]).resolve() if len(sys.argv)>1 else root/"target/release/flutter-inspector"
         desktop=subprocess.Popen([str(desktop_binary)],env=desktop_environment,stdout=desktop_log,stderr=desktop_log)
         desktop_window=window(desktop)
+        if observe_check:
+            subprocess.run(["xdotool","mousemove","--window",desktop_window,"900","600"],check=True)
+            screenshot(desktop_window,"automatic-scan-toolbar.png")
         time.sleep(4)
+        if observe_check:
+            screenshot(desktop_window,"settled-toolbar.png")
+            def refresh_pixels(name):
+                return subprocess.check_output([shutil.which("magick") or "convert",str(output/name),"-crop","82x28+503+1","-depth","8","rgb:-"])
+            assert refresh_pixels("automatic-scan-toolbar.png")==refresh_pixels("settled-toolbar.png"),"Automatic discovery changed or shifted the Refresh control"
         if os.environ.get("INSPECTOR_TEST_PICK_FIXTURE") == "1":
             select_fixture(desktop_window)
         click(fixture_window,90,177)
@@ -187,7 +196,7 @@ if sys.argv[1:2] == ['devices']:
             assert discovery_scans()>scans_before+1,"No fresh scan after hot restart"
             screenshot(desktop_window,"hot-restart-reconnected.png")
             earlier_sessions.update(row["sessionId"] for row in captured())
-            (output/"scan-policy.json").write_text(json.dumps({"connected_scans_over_12_seconds":0,"manual_refresh":True,"hot_restart_reconnect":True,"slow_adb_seconds":2},indent=2))
+            (output/"scan-policy.json").write_text(json.dumps({"stable_automatic_scan_toolbar":True,"connected_scans_over_12_seconds":0,"manual_refresh":True,"hot_restart_reconnect":True,"slow_adb_seconds":2},indent=2))
         os.killpg(fixture.pid, signal.SIGTERM)
         fixture.wait(timeout=5)
         fixture=launch_fixture()
